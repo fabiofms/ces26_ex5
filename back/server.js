@@ -16,20 +16,43 @@ app.use((req, res, next) => {
 })
 
 app.post('/register', (req, res) => {
-  // Read JSON body
-  console.log(req.body)
-  const jsonString = JSON.stringify(req.body)
-  fs.writeFile('./newCustomer.json', jsonString, err => {
-    if (err) {
-      return res.status(500).json({error: 'Server error'})
+  // Try to read customer file
+  fs.readFile(__dirname + "/customer.json", "utf8", (errRead, jsonCustomer) => {
+    if (errRead) {
+      // If can't find file, create
+      if (errRead.code == 'ENOENT') {
+        const jsonBody = JSON.stringify({customers: [req.body]})
+        fs.writeFile(__dirname + "/customer.json", jsonBody, errWrite => {
+          if (errWrite) {
+            return res.status(500).json({error: 'Server error first'})
+          } else {
+            return res.json(req.body)
+          }
+        })
+      } else {
+          return res.status(500).json({error: 'Server error second'})
+      }
     } else {
-      return res.json(req.body)
+      // If file already existis, update and save again
+      try {
+        var customer = JSON.parse(jsonCustomer);
+        customer.customers = [...customer.customers, req.body]
+        const updatedCustomer = JSON.stringify(customer)
+        fs.writeFile(__dirname + "/customer.json", updatedCustomer, errWrite => {
+          if (errWrite) {
+            return res.status(500).json({error: 'Server error'})
+          }
+        })
+        return res.json(customer);
+      } catch(err){
+        return res.status(500).json({error: 'Server error'})
+      }
     }
-  })
+  });
 })
 
 app.get('/', (req, res) => {
-  fs.readFile(__dirname + "/newCustomer.json", "utf8", (err, jsonString) => {
+  fs.readFile(__dirname + "/customer.json", "utf8", (err, jsonString) => {
     if (err) {
       return res.status(500).json({error: 'Server error'})
     }
